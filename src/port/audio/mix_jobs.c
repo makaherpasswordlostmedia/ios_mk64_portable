@@ -163,7 +163,10 @@ static void wait_for(uint32_t target) {
 
 void* port_mix_wait(int ai_buffer, void* buffer) {
     wait_for(sJobOfAiBuffer[ai_buffer & 7]);
-    return sUseMe ? (void*) ((uintptr_t) buffer | 0x40000000u) : buffer; /* the ME wrote it past our cache */
+    /* sUseMe is -1 until port_mix_begin() decides; the first wait comes before it.
+     * -1 is truthy, so the old `sUseMe ?` OR'd the PSP uncached-mirror bit into the
+     * pointer: bogus 0x49xxxxxx address on iOS (and a latent bug on PSP). */
+    return (sUseMe > 0) ? (void*) ((uintptr_t) buffer | 0x40000000u) : buffer; /* the ME wrote it past our cache */
 }
 
 void port_mix_drain(void) {
