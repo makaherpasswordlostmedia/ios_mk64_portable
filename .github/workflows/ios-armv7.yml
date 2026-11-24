@@ -832,6 +832,37 @@ jobs:
           # non-PIE at 0x09000000: the game tells real pointers from segmented addresses by value
           "$THEOS/toolchain/linux/iphone/bin/otool" -l "$BIN" | grep -A3 "segname __TEXT" | grep -q "0x09000000"
 
+      - name: Package .deb (jailbroken iOS 7-9.3.5, installs to /Applications)
+        run: |
+          set -euo pipefail
+          D=build/ios/deb
+          rm -rf "$D" && mkdir -p "$D/Applications" "$D/DEBIAN"
+          cp -a build/ios/Payload/MK64.app "$D/Applications/"
+          cat > "$D/DEBIAN/control" <<EOF
+          Package: com.example.mk64.armv7
+          Name: MK64 Portable
+          Version: 1.0-${GITHUB_RUN_NUMBER}
+          Architecture: iphoneos-arm
+          Section: Games
+          Depends: firmware (>= 7.0)
+          Maintainer: MK64 Portable
+          Description: Mario Kart 64 port for armv7 iOS (contains ROM-derived data, personal use only)
+          EOF
+          sed -i 's/^          //' "$D/DEBIAN/control"
+          printf '#!/bin/sh\nchmod 755 /Applications/MK64.app/MK64\nuicache >/dev/null 2>&1 || true\nexit 0\n' > "$D/DEBIAN/postinst"
+          chmod 755 "$D/DEBIAN/postinst"
+          find "$D" -type d -exec chmod 755 {} +
+          # gzip: old dpkg on iOS 7-9 cannot read xz/zstd
+          dpkg-deb --root-owner-group -Zgzip -b "$D" build/ios/MK64.deb
+          dpkg-deb -I build/ios/MK64.deb
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: MK64-armv7-iOS9-deb
+          path: build/ios/MK64.deb
+          if-no-files-found: error
+          retention-days: 3
+
       - uses: actions/upload-artifact@v4
         with:
           name: MK64-armv7-iOS9
